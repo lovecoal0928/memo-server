@@ -130,11 +130,6 @@
 
       const req = new XMLHttpRequest()
       req.addEventListener("load", () => {
-        if (req.status != 200) {
-          alert("エラーが発生しました。再読み込みしてください。")
-          return
-        }
-
         //取得したメモ一覧をHTMLにしていく。
         const memos = JSON.parse(req.responseText)
         Object.values(memos).forEach((memoFromBackendServer) => {
@@ -165,30 +160,42 @@
       })
     }
 
+
+    #validateMemo(id, title, body) {
+      var errStr = ""
+      if (title.length < 1 || title.length > Memo.MaxTitleLength) {
+        errStr = "タイトルの文字数は1文字以上30文字以下にしてください。<br>"
+      }
+
+      if (body.length < 1 || body.length > Memo.MaxBodyLength) {
+        errStr = errStr + "本文の文字数は1文字以上100文字以下にしてください。<br>"
+      }
+
+      this.#memos.forEach((m) => {
+        if (m.id == id) {
+          return
+        }
+        if (m.title == title) {
+          errStr = "すでに登録済みのタイトルです。<br>"
+        }
+      })
+
+      return errStr
+    }
+
     updateMemo(id, title, body) {
+      const errStr = this.#validateMemo(id, title, body)
+      if (errStr.length > 0) {
+        return errStr
+      }
+
       const memo = this.#getMemoById(id)
       memo.update(title, body)
 
       const req = new XMLHttpRequest()
       req.addEventListener("load", () => {
-        //非同期で実行される
-        //バックエンドサーバからのレスポンスが返ってくる
-        if (req.status == 200) {
-          memo.update(title, body)
-          editModal.hide()
-          return
-        }
-
-        var errStr = createErrorMessage(req.responseText)
-
-        if (req.status == 500) {
-          errStr = "エラーが発生しました。<br>もう一度操作してください。"
-        }
-
-        validationErrorInEditModal.innerHTML = errStr
-        validationErrorInEditModal.style.display = ""
       })
-      req.open("PUT", "http://localhost:8080/update_memo")
+      req.open("POST", "http://localhost:8080/add_memo")
       req.setRequestHeader("Content-Type", "application/json")
       const httpBody = {
         ID: Number(memo.id),
@@ -207,31 +214,19 @@
     }
 
     addMemo(title, body) {
+      //この時点で登録されるメモに id はないので、-1 を指定する。
+      const errStr = this.#validateMemo(-1, title, body)
+      if (errStr.length > 0) {
+        return errStr
+      }
+
       const memo = Memo.createNewMemo(title, body)
+
+      this.#pushMemo(memo)
 
       //メモをバックエンドサーバに送信する
       const req = new XMLHttpRequest()
       req.addEventListener("load", () => {
-        //非同期で実行される
-        //バックエンドサーバからのレスポンスが返ってくる
-        if (req.status == 200) {
-          this.#pushMemo(memo)
-          addModal.hide()
-          return
-        }
-
-        const errors = JSON.parse(req.responseText).errors
-        var errStr = ""
-        Object.values(errors).forEach((error) => {
-          errStr = errStr + error.message + "<br>"
-        })
-
-        if (req.status == 500) {
-          errStr = "エラーが発生しました。<br>もう一度操作してください。"
-        }
-
-        validationErrorInAddModal.innerHTML = errStr
-        validationErrorInAddModal.style.display = ""
       })
       req.open("POST", "http://localhost:8080/add_memo")
       req.setRequestHeader("Content-Type", "application/json")
@@ -261,15 +256,11 @@
         return
       }
 
+      deleteTarget.delete()
+
       //削除エンドポイントを叩く
       const req = new XMLHttpRequest()
       req.addEventListener("load", () => {
-        if (req.status == 200) {
-          deleteTarget.delete()
-          return
-        }
-
-        alert("エラーが発生しました。画面を再読み込みしてください。")
       })
       req.open("DELETE", "http://localhost:8080/delete_memos?id=" + deleteTarget.id)
       req.setRequestHeader("Content-Type", "application/json")
@@ -392,7 +383,16 @@
     const title = titleInAddModal.value
     const body = bodyInAddModal.value
 
-    memos.addMemo(title, body)
+    const errStr = memos.addMemo(title, body)
+    if (errStr.length > 0) {
+      //エラーがあるので、addModal.hile() をせずに return する。
+      validationErrorInAddModal.innerHTML = errStr
+      validationErrorInAddModal.style.display = ""
+      return
+    }
+
+    //エラーがない場合はモーダルを閉じて終わる。
+    addModal.hide()
   })
 
   const addButton = document.getElementById("id-add-button")
@@ -438,17 +438,15 @@
     const title = titleInEditModal.value
     const body = bodyInEditModal.value
 
-    memos.updateMemo(memoId, title, body)
-  })
+    const errStr = memos.updateMemo(memoId, title, body)
+    if (errStr.length > 0) {
+      validationErrorInEditModal.innerHTML = errStr
+      validationErrorInEditModal.style.display = ""
+      return
+    }
 
-  function createErrorMessage(responseText) {
-    const errors = JSON.parse(responseText).errors
-    var errStr = ""
-    Object.values(errors).forEach((error) => {
-      errStr = errStr + error.message + "<br>"
-    })
-    return errStr
-  }
+    editModal.hide()
+  })
 
 </script>
 
