@@ -6,7 +6,7 @@ Package: golang
 Version: 2:1.13~1ubuntu2
 ```
 初めて触った時のGolangがv1.13だったことが発覚  
-ubuntuを使ってサーバー起動とかしてたのでWindowsPowerShellと勝手が違ったので調べながら更新しました  
+ubuntuを使ってサーバー起動とかしてたのでWindowsPowerShellと勝手が違ったので調べながら更新しました
 
 ## 現行バージョン確認
 ```
